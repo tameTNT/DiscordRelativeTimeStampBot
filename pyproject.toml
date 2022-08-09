@@ -6,11 +6,11 @@ authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-discord-components = "^1.1.4"
 discord = "^1.7.3"
 Flask = "^2.0.1"
 humanize = "^3.11.0"
 django-timezone = "^0.3"
+discord-components = {git = "https://github.com/kiki7000/discord.py-components"}
 
 [tool.poetry.dev-dependencies]
 

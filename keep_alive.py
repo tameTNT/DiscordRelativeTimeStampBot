@@ -3,6 +3,7 @@ from threading import Thread
 
 web = Flask('')
 
+
 @web.route('/')
 def home():
    return "The Timestamp Maker Bot's Flask server is running and well!\nCheck console for debug and actual bot status."

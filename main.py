@@ -87,6 +87,12 @@ async def on_ready():
     DiscordComponents(bot)  # enables use of components argument in ctx.send() calls
     await bot.change_presence(activity=discord.Game('type t!help mestamp to see help'))
     print("Timestamp Maker Bot is ready and raring to accept commands via Discord!")
+
+    # run a Flask server to allow for pinging from https://uptimerobot.com to keep repl.it running 
+    # and awake it from periodic sleep
+    # https://discordrelativetimestampbot.lucahuelle.repl.co/
+    keep_alive.keep_alive()
+    print('Bot and server both running')
     
    
 @bot.command(  # text used for help commands
@@ -198,12 +204,9 @@ async def on_button_click(interaction: Interaction):
 
         await send_all_timestamps_embed(epoch_time, interaction)
 
+
 # actually run the bot using the Discord dev secret `DISCORD_TOKEN` set in repl.it Secrets panel
 try:
     bot.run(os.environ['DISCORD_TOKEN'])
-    # run a Flask server to allow for pinging from https://uptimerobot.com to keep repl.it running 
-    # and awake it from periodic sleep
-    keep_alive.keep_alive()
-    print('Bot and server both running')
 except HTTPException:
     print("HTTP ERROR 429 - Too Many Requests\nDiscord has rate limited repl.it and the bot will not work for this time.")
