@@ -1,0 +1,3 @@
+git+https://github.com/Rapptz/discord.py
+humanize==3.11.0
+django-timezone==0.3
