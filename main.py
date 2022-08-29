@@ -99,7 +99,8 @@ class TimestampDropdown(discord.ui.Select):
         # The placeholder is what will be shown when no option is chosen
         # The min and max values indicate we can only pick one of the three options
         # The options parameter defines the dropdown options. We defined this above
-        super().__init__(placeholder='Or choose a specific format for your timestamp', min_values=1, max_values=1, options=options)
+        super().__init__(placeholder='Or choose a specific format for your timestamp',
+                         min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: Interaction):
         user_format_choice = self.values[0]
@@ -175,9 +176,11 @@ async def send_success_response(repliable: Context | Interaction, time_obj: date
 async def error_with_time_values(repliable: Context | Interaction):
     error_embed = Embed(
         title="That date didn't seem to work out :/",
-        description='Make sure your input date+time is in the format `YYYY/MM/DD HH:MM[±HHMM]` and is actually a date that exists!\n'
+        description='Make sure your input date+time is in the format '
+                    '`YYYY/MM/DD HH:MM[±HHMM]` and is actually a date that exists!\n'
                     'e.g. `2021/08/21 22:05`, `2021/08/22 00:05+0200`, `2021/08/21 18:35-0330`\n'
-                    "Don't forget: either `HH:MM` is in UTC or you've included a UTC-offset, `±HHMM` (*note no colon*)!"
+                    "Don't forget: either `HH:MM` is in UTC "
+                    "or you've included a UTC-offset, `±HHMM` (*note no colon*)!"
     )
 
     help_button_view = discord.ui.View()
@@ -194,10 +197,14 @@ async def error_with_time_values(repliable: Context | Interaction):
 
 @bot.command(  # text used for help commands
     brief='Converts datetime to Discord timestamp. Also available as a slash command.',
-    description="Use 't!mestamp YYYY/MM/DD HH:MM[±HHMM]' to convert datetime to a Discord usable timestamp in 1 of 6 formats.\n"
-                "±HHMM (*note no colon*) is an optional UTC-offset. Use your local HH:MM together with your UTC offset or just UTC HH:MM with no offset.\n\n"
-                "e.g. t!mestamp 2021/08/21 22:05 -> format number 5 selected -> <t:1629583500:F>\n(displayed in UTC+1 regions as 'Saturday, 21 August 2021 23:05')\n\n"
-                "e.g. t!mestamp 2021/08/21 09:55+0100 -> format number 1 selected -> <t:1629536100:t> \n(displayed in UTC+1 regions as '09:55')"
+    description="Use 't!mestamp YYYY/MM/DD HH:MM[±HHMM]' to convert datetime "
+                "to a Discord usable timestamp in 1 of 6 formats.\n"
+                "±HHMM (*note no colon*) is an optional UTC-offset. "
+                "Use your local HH:MM together with your UTC offset or just UTC HH:MM with no offset.\n\n"
+                "e.g. t!mestamp 2021/08/21 22:05 -> format number 5 selected -> <t:1629583500:F>\n"
+                "(displayed in UTC+1 regions as 'Saturday, 21 August 2021 23:05')\n\n"
+                "e.g. t!mestamp 2021/08/21 09:55+0100 -> format number 1 selected -> <t:1629536100:t> \n"
+                "(displayed in UTC+1 regions as '09:55')"
 )
 # together with t! prefix, spells 't!mestamp' - the main bot command
 async def mestamp(ctx: Context, *, user_datetime: str = ''):
