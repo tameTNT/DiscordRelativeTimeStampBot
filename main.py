@@ -1,3 +1,5 @@
+# Invite: https://discord.com/api/oauth2/authorize?client_id=874736991630139432&permissions=2147503104&scope=bot%20applications.commands
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
