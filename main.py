@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import os
-from typing import Union
+from typing import Optional
 
 from discord import Embed, Interaction
 from discord.ext import commands
@@ -33,19 +33,19 @@ def console_log_with_time(msg: str):
 def create_relative_label(user_datetime: datetime) -> str:
     """Creates a human-readable relative time label similar to that used by Discord for user_datetime"""
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(tz=timezone.utc)
     time_delta = now - user_datetime
     return humanize.naturaltime(time_delta)
 
 
-def get_user_tag(discord_info: Union[Context, Interaction]) -> str:
+def get_user_tag_from_origin(origin: Context | Interaction) -> str:
     """Build a user's tag from context for logging purposes"""
 
-    if isinstance(discord_info, Context):
-        user = discord_info.author
+    if isinstance(origin, Context):
+        user = origin.author
 
-    elif isinstance(discord_info, Interaction):
-        user = discord_info.user
+    elif isinstance(origin, Interaction):
+        user = origin.user
 
     else:
         raise TypeError('argument discord_info must be a Context or Interaction object')
@@ -57,25 +57,22 @@ async def show_all_button_callback(interaction: Interaction, epoch_time):
     await send_all_timestamps_embed(interaction, epoch_time)
 
 
-def create_show_all_button_view(time_obj: datetime) -> discord.ui.View:
+def show_all_button(time_obj: datetime) -> discord.ui.Button:
     """Create a Button component to trigger showing the all timestamps embed (created below)"""
 
     epoch_time = int(time_obj.timestamp())
 
-    show_all_button = discord.ui.Button(
+    button = discord.ui.Button(
         label='Show All!',
         style=discord.ButtonStyle.primary,  # blurple style
         emoji=bot.get_emoji(816705774201077830),  # id of LLK Discord :wow: emoji
     )
-    show_all_button.callback = lambda i: show_all_button_callback(i, epoch_time)
+    button.callback = lambda i: show_all_button_callback(i, epoch_time)
 
-    show_all_view = discord.ui.View()
-    show_all_view.add_item(show_all_button)
-
-    return show_all_view
+    return button
 
 
-def make_timezone_link_button() -> discord.ui.Button:
+def timezone_guide_button() -> discord.ui.Button:
     return discord.ui.Button(
         label='Find out your timezone offset',
         emoji=discord.PartialEmoji(name='🕑'),
@@ -95,9 +92,9 @@ class TimestampDropdown(discord.ui.Select):
         # Set the options that will be presented inside the dropdown
         # add all other options
         for template, format_key in TIME_FORMAT_TEMPLATES.items():
-            options.append(discord.SelectOption(label=template.format(time_obj), value=format_key))
+            options.append(discord.SelectOption(label=template.format(self.time_obj), value=format_key))
         # and relative option
-        options.append(discord.SelectOption(label=f'{create_relative_label(time_obj)}', value='R'))
+        options.append(discord.SelectOption(label=f'{create_relative_label(self.time_obj)}', value='R'))
 
         # The placeholder is what will be shown when no option is chosen
         # The min and max values indicate we can only pick one of the three options
@@ -107,36 +104,33 @@ class TimestampDropdown(discord.ui.Select):
     async def callback(self, interaction: Interaction):
         user_format_choice = self.values[0]
 
-        if user_format_choice == 'all':
-            await send_all_timestamps_embed(interaction, self.epoch_time)
+        final_timestamp = f'<t:{self.epoch_time}:{user_format_choice}>'
 
-        else:  # normal specific timestamp choice
-            final_timestamp = f'<t:{self.epoch_time}:{user_format_choice}>'
+        # build final embed for response to user
+        timestamp_embed = Embed(
+            title=f'For *__you__*, this timestamp will display as\n{final_timestamp}\n'
+                  'It will be localised for everyone else! 🎉',
+            description='***On mobile**, long press the date/time string above to copy the format code shown below.*\n'
+                        f'\\{final_timestamp}',
+        )
 
-            # build final embed for response to user
-            timestamp_embed = Embed(
-                title=f'For *__you__*, this timestamp will display as\n{final_timestamp}\n'
-                      'It will be localised for everyone else! 🎉',
-                description='***On mobile**, long press the date/time string above to copy the format code shown below.*\n'
-                            f'\\{final_timestamp}',
-            )
+        if self.utc_offset_used:
+            warning_msg = 'make sure your UTC offset (`±HHMM` *note no colon*) is correct. '
+        else:
+            warning_msg = 'make sure `HH:MM` is in UTC or you include a UTC offset (`±HHMM` *note no colon*) .'
 
-            if self.utc_offset_used:
-                warning_msg = 'make sure your UTC offset (`±HHMM` *note no colon*) is correct. '
-            else:
-                warning_msg = 'make sure `HH:MM` is in UTC or you include a UTC offset (`±HHMM` *note no colon*) .'
+        timestamp_embed.add_field(
+            name='⚠',
+            value='If the displayed timestamp looks wrong, ' + warning_msg,
+        )
 
-            timestamp_embed.add_field(
-                name='⚠',
-                value='If the displayed timestamp looks wrong, ' + warning_msg,
-            )
+        resp_view = discord.ui.View()
+        resp_view.add_item(show_all_button(self.time_obj))
+        resp_view.add_item(timezone_guide_button())
 
-            show_all_view = create_show_all_button_view(self.time_obj)
-            show_all_view.add_item(make_timezone_link_button())
-
-            # using .respond() so only visible to triggering user (vs .send())
-            console_log_with_time(f'Sent standard final timestamp embed to {get_user_tag(interaction)}')
-            await interaction.response.send_message(embed=timestamp_embed, view=show_all_view, ephemeral=True)
+        # using .respond() so only visible to triggering user (vs .send())
+        console_log_with_time(f'Sent standard final timestamp embed to {get_user_tag_from_origin(interaction)}')
+        await interaction.response.send_message(embed=timestamp_embed, view=resp_view, ephemeral=True)
 
 
 async def send_all_timestamps_embed(interaction: Interaction, epoch_time: int) -> None:
@@ -156,18 +150,57 @@ async def send_all_timestamps_embed(interaction: Interaction, epoch_time: int) -
         # \\ escapes timestamp so raw string is displayed in Discord
         response_embed.add_field(name=discord_stamp, value=f'\\{discord_stamp}', inline=True)
 
-    console_log_with_time(f'Sent all timestamps embed to {get_user_tag(interaction)}')
+    console_log_with_time(f'Sent all timestamps embed to {get_user_tag_from_origin(interaction)}')
     await interaction.response.send_message(embed=response_embed, ephemeral=True)
 
 
+async def send_success_response(repliable: Context | Interaction, time_obj: datetime, utc_offset_used: bool):
+    resp_view = discord.ui.View()
+    resp_view.add_item(show_all_button(time_obj))
+    resp_view.add_item(TimestampDropdown(time_obj, utc_offset_used))
+
+    reply_data = dict(
+        content='Your date passed the reality test!\n'
+                '*NB: The final numbers and format may differ slightly from those shown in the dropdown*',
+        view=resp_view, ephemeral=True
+    )
+    if isinstance(repliable, Context):
+        await repliable.reply(**reply_data)
+    elif isinstance(repliable, Interaction):
+        await repliable.response.send_message(**reply_data)
+
+    console_log_with_time(f'Sent format selection embed in response to {get_user_tag_from_origin(repliable)}')
+
+
+async def error_with_time_values(repliable: Context | Interaction):
+    error_embed = Embed(
+        title="That date didn't seem to work out :/",
+        description='Make sure your input date+time is in the format `YYYY/MM/DD HH:MM[±HHMM]` and is actually a date that exists!\n'
+                    'e.g. `2021/08/21 22:05`, `2021/08/22 00:05+0200`, `2021/08/21 18:35-0330`\n'
+                    "Don't forget: either `HH:MM` is in UTC or you've included a UTC-offset, `±HHMM` (*note no colon*)!"
+    )
+
+    help_button_view = discord.ui.View()
+    help_button_view.add_item(timezone_guide_button())
+
+    reply_data = dict(embed=error_embed, view=help_button_view, ephemeral=True)
+    if isinstance(repliable, Context):
+        await repliable.reply(**reply_data)
+    elif isinstance(repliable, Interaction):
+        await repliable.response.send_message(**reply_data)
+
+    console_log_with_time(f'Sent error embed in response to {get_user_tag_from_origin(repliable)}')
+
+
 @bot.command(  # text used for help commands
-    brief='Converts datetime to Discord timestamp',
+    brief='Converts datetime to Discord timestamp. Also available as a slash command.',
     description="Use 't!mestamp YYYY/MM/DD HH:MM[±HHMM]' to convert datetime to a Discord usable timestamp in 1 of 6 formats.\n"
                 "±HHMM (*note no colon*) is an optional UTC-offset. Use your local HH:MM together with your UTC offset or just UTC HH:MM with no offset.\n\n"
                 "e.g. t!mestamp 2021/08/21 22:05 -> format number 5 selected -> <t:1629583500:F>\n(displayed in UTC+1 regions as 'Saturday, 21 August 2021 23:05')\n\n"
                 "e.g. t!mestamp 2021/08/21 09:55+0100 -> format number 1 selected -> <t:1629536100:t> \n(displayed in UTC+1 regions as '09:55')"
 )
-async def mestamp(ctx: Context, *, user_datetime: str = ''):  # together with prefix, spells 't!mestamp' - the main bot cmd
+# together with t! prefix, spells 't!mestamp' - the main bot command
+async def mestamp(ctx: Context, *, user_datetime: str = ''):
     try:  # Assuming user_datetime includes a UTC offset (e.g. +0100)
         # creates an aware datetime obj since it includes a UTC offset (%z)
         time_obj = datetime.strptime(user_datetime.strip(), '%Y/%m/%d %H:%M%z')
@@ -179,32 +212,52 @@ async def mestamp(ctx: Context, *, user_datetime: str = ''):  # together with pr
             time_obj = time_obj.replace(tzinfo=timezone.utc)  # make datetime obj aware by adding tzinfo
             utc_offset_used = False
         except ValueError:  # user_datetime didn't match either expected format :(
-            error_embed = Embed(
-                title='Make sure input datetime is in the format:\n`YYYY/MM/DD HH:MM[±HHMM]`',
-                description='e.g. `2021/08/21 22:05`, `2021/08/22 00:05+0200`, `2021/08/21 18:35-0330`\n'
-                            "Don't forget: either `HH:MM` is in UTC or you've included a UTC-offset, `±HHMM` (*note no colon*)!"
-            )
-            console_log_with_time(f'Sent error embed in response to {get_user_tag(ctx)}')
-            help_button_view = discord.ui.View()
-            help_button_view.add_item(make_timezone_link_button())
-            await ctx.reply(embed=error_embed, view=help_button_view, ephemeral=True)
+            await error_with_time_values(ctx)
             return  # exit function - no valid datetime entered
 
     # if we reached here and function wasn't exited - date must be valid!
-    response_view = create_show_all_button_view(time_obj)
-    response_view.add_item(TimestampDropdown(time_obj, utc_offset_used))
+    await send_success_response(ctx, time_obj, utc_offset_used)
 
-    console_log_with_time(f'Sent format selection embed in response to {get_user_tag(ctx)}')
-    await ctx.reply(
-        content="Your date passed the reality test!\n"
-                "*NB: The final numbers and format may differ slightly from those shown in the dropdown*",
-        view=response_view, ephemeral=True
-    )
+
+@bot.tree.command(description='Converts a datetime to a Discord timestamp interactively in 1 of 6 formats.')
+@discord.app_commands.describe(offset='UTC offset in format ±HHMM (*note no colon*)')
+async def timestamp(interaction: Interaction,
+                    year: int,
+                    month: discord.app_commands.Range[int, 1, 12],
+                    day: discord.app_commands.Range[int, 1, 31],
+                    hour: discord.app_commands.Range[int, 0, 23],
+                    minutes: discord.app_commands.Range[int, 0, 59],
+                    offset: Optional[str] = ''):
+
+    constructed_date_str = f'{year:04}/{month:02}/{day:02} {hour:02}:{minutes:02}'
+    strp_str = '%Y/%m/%d %H:%M'
+    if offset:
+        utc_offset_used = True
+        constructed_date_str += f'{offset}'
+        strp_str += '%z'
+    else:
+        utc_offset_used = False
+
+    try:
+        time_obj = datetime.strptime(constructed_date_str, strp_str)
+    except ValueError:
+        await error_with_time_values(interaction)
+        return
+
+    if not utc_offset_used:
+        time_obj = time_obj.replace(tzinfo=timezone.utc)
+
+    await send_success_response(interaction, time_obj, utc_offset_used)
 
 
 @bot.event  # initial start-up event
 async def on_ready():
     await bot.change_presence(activity=discord.Game('type t!help mestamp to see help'))
+
+    sync_guild = discord.Object(id=145229754390282240)
+    bot.tree.copy_global_to(guild=sync_guild)
+    await bot.tree.sync(guild=sync_guild)  # Change guild to None for global sync
+
     console_log_with_time('Timestamp Maker Bot is ready and raring to accept commands via Discord!')
 
 
