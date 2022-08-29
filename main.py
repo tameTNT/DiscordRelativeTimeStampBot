@@ -265,9 +265,11 @@ async def on_ready():
 
     sync_guild = discord.Object(id=145229754390282240)
     bot.tree.copy_global_to(guild=sync_guild)
-    await bot.tree.sync(guild=sync_guild)  # Change guild to None for global sync
+    # DEPLOY TODO: change guild to None for global sync
+    await bot.tree.sync(guild=sync_guild)
 
     console_log_with_time('Timestamp Maker Bot is ready and raring to accept commands via Discord!')
 
 
+# DEPLOY TODO: hardcode token
 bot.run(os.environ['DISCORD_TIMESTAMP_TOKEN'])
