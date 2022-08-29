@@ -29,7 +29,7 @@ TIME_FORMAT_TEMPLATES = {
 
 
 def console_log_with_time(msg: str):
-    print(f'{datetime.now(tz=timezone.utc):%Y/%m/%d %H:%M:%S%z} - {msg}')
+    print(f'[timestamp] {datetime.now(tz=timezone.utc):%Y/%m/%d %H:%M:%S%z} - {msg}')
 
 
 def create_relative_label(user_datetime: datetime) -> str:
